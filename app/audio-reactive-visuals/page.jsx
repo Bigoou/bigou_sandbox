@@ -12,24 +12,24 @@ export default function Page() {
     const audioManager = useRef(null);
     const bpmManager = useRef(null);
 
-    useEffect(() => {
-        audioManager.current = new AudioManager();
-        bpmManager.current = new BPMManager();
+    // useEffect(() => {
+    //     audioManager.current = new AudioManager();
+    //     bpmManager.current = new BPMManager();
 
-        const setupAudioAndBPM = async () => {
-            await audioManager.current.loadAudioBuffer();
-            await bpmManager.current.detectBPM(audioManager.current.audio.buffer);
-            bpmManager.current.addEventListener('beat', () => {
-                console.log('Beat detected');
-            });
-        };
+    //     const setupAudioAndBPM = async () => {
+    //         await audioManager.current.loadAudioBuffer();
+    //         await bpmManager.current.detectBPM(audioManager.current.audio.buffer);
+    //         bpmManager.current.addEventListener('beat', () => {
+    //             console.log('Beat detected');
+    //         });
+    //     };
 
-        setupAudioAndBPM();
+    //     setupAudioAndBPM();
 
-        return () => {
-            bpmManager.current.removeEventListener('beat');
-        };
-    }, []);
+    //     return () => {
+    //         bpmManager.current.removeEventListener('beat');
+    //     };
+    // }, []);
 
     return (
         <div className="h-screen flex justify-center items-center bg-black">
