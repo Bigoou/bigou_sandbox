@@ -3,7 +3,7 @@ import '@/global.css'
 
 export const metadata = {
   title: 'La Sandbox de Toinou',
-  description: 'Bac à sable d\'expérimentation de Toinou',
+  description: 'Bac à sable d\&apos;expérimentation de Toinou',
 }
 
 export default function RootLayout({ children }) {
