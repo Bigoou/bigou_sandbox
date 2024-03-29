@@ -9,7 +9,7 @@ import AudioManager from '../managers/AudioManager';
 import gsap from 'gsap'
 
 
-export default function DynamicGeometry({ vertexShader, fragmentShader }) {
+export default function DynamicGeometry({ audioUrl, vertexShader, fragmentShader }) {
     const meshRef = useRef();
     const { scene } = useThree();
     const timeRef = useRef(0);
@@ -188,6 +188,7 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
         audioManager.current = new AudioManager();
         bpmManager.current = new BPMManager();
         const setupAudioAndBPM = async () => {
+            audioManager.current.setSong(audioUrl);
             await audioManager.current.loadAudioBuffer();
             await bpmManager.current.detectBPM(audioManager.current.audio.buffer);
             bpmManager.current.addEventListener('beat', () => {
@@ -215,6 +216,28 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
             updateMaterialUniforms(geometryControls);
         }
     }, [geometryControls]);
+
+    useEffect(() => {
+        if (geometryControls.autoRandom) {
+            const interval = setInterval(() => {
+                scene.remove(meshRef.current);
+                if (Math.random() > 0.5) {
+                    setRandomControls();
+                    createBoxMesh(geometryControls);
+                } else {
+                    setRandomControls();
+                    createBoxMesh(geometryControls);
+                }
+            }, 2000);
+            return () => clearInterval(interval);
+        }
+    }, [geometryControls.autoRandom]);
+
+    useEffect(() => {
+        if (audioUrl) {
+            audioManager.current.setSong(audioUrl);
+        }
+    }, [audioUrl]);
 
     useFrame(() => {
         if (geometryControls.autoRotate && meshRef.current) {
@@ -252,7 +275,7 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
             });
 
             // Logique de mise à l'échelle en fonction de 'high'
-            if (high > 0.3) {
+            if (high > 0.2) {
                 gsap.to(meshRef.current.scale, {
                     x: 2 + high * 0.5, // Exemple de mise à l'échelle basée sur 'high'
                     y: 2 + high * 0.5,
@@ -291,33 +314,6 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
     });
 
 
-
-    const test = () => {
-        scene.remove(meshRef.current);
-        if (Math.random() > 0.5) {
-            setRandomControls();
-            createBoxMesh(geometryControls);
-        } else {
-            setRandomControls();
-            createBoxMesh(geometryControls);
-        }
-    }
-
-    useEffect(() => {
-        if (geometryControls.autoRandom) {
-            const interval = setInterval(() => {
-                scene.remove(meshRef.current);
-                if (Math.random() > 0.5) {
-                    setRandomControls();
-                    createBoxMesh(geometryControls);
-                } else {
-                    setRandomControls();
-                    createBoxMesh(geometryControls);
-                }
-            }, 2000);
-            return () => clearInterval(interval);
-        }
-    }, [geometryControls.autoRandom]);
 
     return null;
 };
