@@ -16,6 +16,8 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
     const audioManager = useRef(null);
     const bpmManager = useRef(null);
     const materialRef = useRef();
+    const [isHigh, setIsHigh] = useState(false);
+    const [highAudioLevel, setHighAudioLevel] = useState(false); // New state to track high audio level changes
 
     const geometryControls = useControls('Geometry Controls', {
         meshType: { value: 'Cylinder', options: ['Cube', 'Cylinder'] },
@@ -33,9 +35,7 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
 
     const updateGeometry = (controls) => {
         if (!meshRef.current) return;
-        let widthSeg = Math.floor(THREE.MathUtils.randInt(5, 20))
-        let heightSeg = Math.floor(THREE.MathUtils.randInt(10, 40))
-        let depthSeg = Math.floor(THREE.MathUtils.randInt(20, 80))
+
         let geometry;
         if (controls.meshType === 'Cube') {
             geometry = new THREE.BoxGeometry(controls.width, controls.height, controls.depth, controls.widthSeg, controls.heightSeg, controls.depthSeg);
@@ -72,6 +72,7 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
     }
 
     const createBoxMesh = (controls) => {
+        // console.log(controls);
         let geometry;
         let widthSeg = Math.floor(THREE.MathUtils.randInt(5, 20))
         let heightSeg = Math.floor(THREE.MathUtils.randInt(10, 40))
@@ -91,7 +92,7 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
                 frequency: { value: controls.frequency },
                 amplitude: { value: controls.amplitude },
                 offsetSize: { value: 2 },
-                size: { value: 6 },
+                size: { value: 10 },
                 offsetGain: { value: 0.5 },
                 maxDistance: { value: 1.8 },
                 startColor: { value: new THREE.Color(controls.startColor) },
@@ -141,7 +142,6 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
         }
     }
 
-
     useEffect(() => {
         audioManager.current = new AudioManager();
         bpmManager.current = new BPMManager();
@@ -181,8 +181,52 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
 
         if (audioManager.current && audioManager.current.isPlaying && audioManager.current.frequencyData) {
             audioManager.current.update();
-            console.log(audioManager.current.frequencyData);
             const { high, mid, low } = audioManager.current.frequencyData;
+
+            if (high > 0.3) {
+                gsap.to(meshRef.current.scale, {
+                    x: 1 + high, // Scale based on the high frequency value
+                    y: 1 + high,
+                    z: 1 + high,
+                    duration: 0.5, // Duration of the scale animation
+                    ease: 'elastic.out(0.2)', // Easing function for smooth animation
+                });
+
+                // Convert high value to a color intensity and animate the color change
+                const colorIntensity = Math.floor(high * 255);
+                const newColor = new THREE.Color(`rgb(${colorIntensity}, 0, 0)`);
+                gsap.to(meshRef.current.material.uniforms.startColor.value, {
+                    r: newColor.r,
+                    g: newColor.g,
+                    b: newColor.b,
+                    duration: 0.5, // Duration of the color change animation
+                    onUpdate: () => {
+                        // This callback function is needed because THREE.Color doesn't directly work with gsap's to function
+                        meshRef.current.material.uniforms.startColor.value.needsUpdate = true;
+                    },
+                });
+            } else if (high <= 0.3) {
+                gsap.to(meshRef.current.scale, {
+                    x: 1,
+                    y: 1,
+                    z: 1,
+                    duration: 0.5, // Duration of the scale animation
+                    ease: 'elastic.out(0.2)', // Easing function for smooth animation
+                });
+
+                // Animate back to default color
+                const defaultColor = new THREE.Color(geometryControls.startColor);
+                gsap.to(meshRef.current.material.uniforms.startColor.value, {
+                    r: defaultColor.r,
+                    g: defaultColor.g,
+                    b: defaultColor.b,
+                    duration: 0.5, // Duration of the color change animation
+                    onUpdate: () => {
+                        // This callback function is needed because THREE.Color doesn't directly work with gsap's to function
+                        meshRef.current.material.uniforms.startColor.value.needsUpdate = true;
+                    },
+                });
+            }
             materialRef.current.uniforms.amplitude.value = geometryControls.amplitude + THREE.MathUtils.mapLinear(high, 0, 0.6, -0.1, 0.2);
             materialRef.current.uniforms.offsetGain.value = mid * 3.6;
 
@@ -198,6 +242,17 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
 
         meshRef.current.material = materialRef.current;
     });
+
+    const test = () => {
+        scene.remove(meshRef.current);
+        if (Math.random() > 0.5) {
+            setRandomControls();
+            createBoxMesh(geometryControls);
+        } else {
+            setRandomControls();
+            createBoxMesh(geometryControls);
+        }
+    }
 
     useEffect(() => {
         if (geometryControls.autoRandom) {
