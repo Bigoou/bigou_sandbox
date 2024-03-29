@@ -101,8 +101,8 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
         geometryControls.frequency = Math.random() * 1.5;
         geometryControls.amplitude = Math.random() * 2;
         // set random color but make sure it isnt too dark to see on the black background
-        geometryControls.startColor = `#${Math.floor(Math.random() * 0xffffff).toString(16)}`;
-        geometryControls.endColor = `#${Math.floor(Math.random() * 0xffffff).toString(16)}`;
+        // geometryControls.startColor = `#${Math.floor(Math.random() * 0xffffff).toString(16)}`;
+        // geometryControls.endColor = `#${Math.floor(Math.random() * 0xffffff).toString(16)}`;
     }
 
     const createBoxMesh = (controls) => {
@@ -218,57 +218,59 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
             audioManager.current.update();
             const { high, mid, low } = audioManager.current.frequencyData;
 
+            // Intensité des couleurs basées sur les fréquences audio
+            const redIntensity = THREE.MathUtils.clamp(high * 2, 0, 1); // Limite pour le rouge
+            const greenIntensity = THREE.MathUtils.clamp(mid * 2, 0, 1); // Limite pour le vert
+            const blueIntensity = THREE.MathUtils.clamp(low * 2, 0, 1); // Limite pour le bleu
+
+            // Ajustez dynamiquement la couleur de départ et de fin en fonction des fréquences
+            gsap.to(meshRef.current.material.uniforms.startColor.value, {
+                r: redIntensity,
+                g: greenIntensity,
+                b: blueIntensity,
+                duration: 0.1, // Animation rapide pour un changement réactif
+                ease: 'sine.inOut',
+                onUpdate: () => meshRef.current.material.uniforms.startColor.value.needsUpdate = true,
+            });
+
+            // Pour la couleur de fin, vous pouvez choisir d'inverser les intensités, de les mélanger autrement, ou de les laisser identiques
+            gsap.to(meshRef.current.material.uniforms.endColor.value, {
+                r: blueIntensity, // Inverse pour l'exemple
+                g: redIntensity,
+                b: greenIntensity,
+                duration: 0.5,
+                ease: 'sine.inOut',
+                onUpdate: () => meshRef.current.material.uniforms.endColor.value.needsUpdate = true,
+            });
+
+            // Logique de mise à l'échelle en fonction de 'high'
             if (high > 0.3) {
                 gsap.to(meshRef.current.scale, {
-                    x: 1 + high, // Scale based on the high frequency value
-                    y: 1 + high,
-                    z: 1 + high,
-                    duration: 0.5, // Duration of the scale animation
-                    ease: 'elastic.out(0.2)', // Easing function for smooth animation
+                    x: 2 + high * 0.5, // Exemple de mise à l'échelle basée sur 'high'
+                    y: 2 + high * 0.5,
+                    z: 2 + high * 0.5,
+                    duration: 0.1,
+                    ease: 'elastic.out(0.2)',
                 });
-
-                // Convert high value to a color intensity and animate the color change
-                const colorIntensity = Math.floor(high * 255);
-                const newColor = new THREE.Color(`rgb(${colorIntensity}, 0, 0)`);
-                gsap.to(meshRef.current.material.uniforms.startColor.value, {
-                    r: newColor.r,
-                    g: newColor.g,
-                    b: newColor.b,
-                    duration: 0.5, // Duration of the color change animation
-                    onUpdate: () => {
-                        // This callback function is needed because THREE.Color doesn't directly work with gsap's to function
-                        meshRef.current.material.uniforms.startColor.value.needsUpdate = true;
-                    },
-                });
-            } else if (high <= 0.3) {
+            } else {
                 gsap.to(meshRef.current.scale, {
-                    x: 1,
+                    x: 1, // Réinitialisation de la mise à l'échelle
                     y: 1,
                     z: 1,
-                    duration: 0.5, // Duration of the scale animation
-                    ease: 'elastic.out(0.2)', // Easing function for smooth animation
-                });
-
-                // Animate back to default color
-                const defaultColor = new THREE.Color(geometryControls.startColor);
-                gsap.to(meshRef.current.material.uniforms.startColor.value, {
-                    r: defaultColor.r,
-                    g: defaultColor.g,
-                    b: defaultColor.b,
-                    duration: 0.5, // Duration of the color change animation
-                    onUpdate: () => {
-                        // This callback function is needed because THREE.Color doesn't directly work with gsap's to function
-                        meshRef.current.material.uniforms.startColor.value.needsUpdate = true;
-                    },
+                    duration: 0.5,
                 });
             }
+
+            // Ajustements des uniformes du matériel basés sur les fréquences
             materialRef.current.uniforms.amplitude.value = geometryControls.amplitude + THREE.MathUtils.mapLinear(high, 0, 0.6, -0.1, 0.2);
             materialRef.current.uniforms.offsetGain.value = mid * 3.6;
 
+            // Ajustement du temps basé sur les fréquences low
             const t = THREE.MathUtils.mapLinear(low, 1.2, 2, 0.4, 1);
             timeRef.current += THREE.MathUtils.clamp(t, 0.2, 0.5);
             materialRef.current.uniforms.time.value = timeRef.current;
         } else {
+            // Réinitialisation des valeurs lorsque l'audio n'est pas en cours de lecture
             materialRef.current.uniforms.frequency.value = 0.8;
             materialRef.current.uniforms.amplitude.value = 1;
             timeRef.current += 0.2;
@@ -277,6 +279,8 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
 
         meshRef.current.material = materialRef.current;
     });
+
+
 
     const test = () => {
         scene.remove(meshRef.current);
