@@ -35,7 +35,7 @@ export default function Page() {
                     Start Experience
                 </button>
             ) : (
-                <Canvas camera={{ position: [0, 0, 20], fov: 75 }}>
+                <Canvas camera={{ position: [0, 0, 20], fov: 30 }}>
                     <ambientLight intensity={0.5} />
                     <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} />
                     <pointLight position={[-10, -10, -10]} />
