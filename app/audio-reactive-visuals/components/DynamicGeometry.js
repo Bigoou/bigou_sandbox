@@ -16,22 +16,54 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
     const audioManager = useRef(null);
     const bpmManager = useRef(null);
     const materialRef = useRef();
-    const [isHigh, setIsHigh] = useState(false);
-    const [highAudioLevel, setHighAudioLevel] = useState(false); // New state to track high audio level changes
-
-    const geometryControls = useControls('Geometry Controls', {
-        meshType: { value: 'Cylinder', options: ['Cube', 'Cylinder'] },
-        width: { value: 10, min: 5, max: 20 },
-        radius: { value: 5, min: 1, max: 10 },
-        height: { value: 10, min: 1, max: 40 },
-        depth: { value: 12, min: 5, max: 80 },
-        autoRotate: true,
-        autoRandom: false,
-        frequency: { value: 0, min: 2.5, max: 5 },
-        amplitude: { value: 1.5, min: 0, max: 3 },
+    const [geometryControls, setGeometryControls] = useState({
+        meshType: 'Cylinder',
+        width: 10,
+        radius: 5,
+        height: 10,
+        depth: 12,
+        autoRotate: false,
+        autoRandom: true,
+        frequency: 0,
+        amplitude: 1.5,
         startColor: '#ff0000',
         endColor: '#0000ff',
     });
+
+    // Method to update geometryControls state
+    const updateGeometryControls = (newControls) => {
+        setGeometryControls(prevControls => ({ ...prevControls, ...newControls }));
+    };
+
+    // Use this method to set random control values, similar to what was previously being done inside setRandomControls
+    const randomizeControls = () => {
+        updateGeometryControls({
+            meshType: Math.random() > 0.5 ? 'Cube' : 'Cylinder',
+            width: THREE.MathUtils.randInt(5, 20),
+            height: THREE.MathUtils.randInt(1, 40),
+            depth: THREE.MathUtils.randInt(5, 80),
+            radius: Math.random() * 10,
+            frequency: Math.random() * 1.5,
+            amplitude: Math.random() * 2,
+            startColor: `#${Math.floor(Math.random() * 0xffffff).toString(16)}`,
+            endColor: `#${Math.floor(Math.random() * 0xffffff).toString(16)}`,
+        });
+    };
+
+
+    // const geometryControls = useControls('Geometry Controls', {
+    //     meshType: { value: 'Cylinder', options: ['Cube', 'Cylinder'] },
+    //     width: { value: 10, min: 5, max: 20 },
+    //     radius: { value: 5, min: 1, max: 10 },
+    //     height: { value: 10, min: 1, max: 40 },
+    //     depth: { value: 12, min: 5, max: 80 },
+    //     autoRotate: true,
+    //     autoRandom: true,
+    //     frequency: { value: 0, min: 2.5, max: 5 },
+    //     amplitude: { value: 1.5, min: 0, max: 3 },
+    //     startColor: '#ff0000',
+    //     endColor: '#0000ff',
+    // });
 
     const updateGeometry = (controls) => {
         if (!meshRef.current) return;
@@ -53,6 +85,7 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
         meshRef.current.material.uniforms.amplitude.value = controls.amplitude;
         meshRef.current.material.uniforms.startColor.value.set(controls.startColor);
         meshRef.current.material.uniforms.endColor.value.set(controls.endColor);
+
     };
 
     const setRandomControls = () => {
@@ -65,10 +98,11 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
             geometryControls.radius = Math.random() * 10;
             geometryControls.height = THREE.MathUtils.randInt(1, 40);
         }
-        geometryControls.frequency = Math.random() * 5;
-        geometryControls.amplitude = Math.random() * 3;
-        geometryControls.startColor = '#' + Math.floor(Math.random() * 16777215).toString(16);
-        geometryControls.endColor = '#' + Math.floor(Math.random() * 16777215).toString(16);
+        geometryControls.frequency = Math.random() * 1.5;
+        geometryControls.amplitude = Math.random() * 2;
+        // set random color but make sure it isnt too dark to see on the black background
+        geometryControls.startColor = `#${Math.floor(Math.random() * 0xffffff).toString(16)}`;
+        geometryControls.endColor = `#${Math.floor(Math.random() * 0xffffff).toString(16)}`;
     }
 
     const createBoxMesh = (controls) => {
@@ -91,9 +125,9 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
                 time: { value: 0 },
                 frequency: { value: controls.frequency },
                 amplitude: { value: controls.amplitude },
-                offsetSize: { value: 2 },
-                size: { value: 10 },
-                offsetGain: { value: 0.5 },
+                offsetSize: { value: 8 },
+                size: { value: 15 },
+                offsetGain: { value: 3.5 },
                 maxDistance: { value: 1.8 },
                 startColor: { value: new THREE.Color(controls.startColor) },
                 endColor: { value: new THREE.Color(controls.endColor) }
@@ -156,6 +190,7 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
         };
 
         setupAudioAndBPM();
+
 
         return () => {
             bpmManager.current.removeEventListener('beat');
@@ -265,7 +300,7 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
                     setRandomControls();
                     createBoxMesh(geometryControls);
                 }
-            }, 1000);
+            }, 2000);
             return () => clearInterval(interval);
         }
     }, [geometryControls.autoRandom]);
