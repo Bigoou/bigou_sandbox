@@ -26,9 +26,13 @@ export default function Page() {
 
     useEffect(() => {
         if (!token) {
-            getSpotifyToken().then((token) => {
-                setToken(token);
-            });
+            async function fetchToken() {
+                const response = await fetch('/api/getSpotifyToken');
+                const data = await response.json();
+                setToken(data.token);
+            }
+
+            fetchToken();
         }
     }, []);
 
