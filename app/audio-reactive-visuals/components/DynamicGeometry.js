@@ -24,8 +24,8 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
         depth: 12,
         autoRotate: false,
         autoRandom: true,
-        frequency: 0,
-        amplitude: 1.5,
+        frequency: 0.8,
+        amplitude: 1,
         startColor: '#ff0000',
         endColor: '#0000ff',
     });
@@ -91,15 +91,21 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
     const setRandomControls = () => {
         geometryControls.meshType = Math.random() > 0.5 ? 'Cube' : 'Cylinder';
         if (geometryControls.meshType === 'Cube') {
-            geometryControls.width = THREE.MathUtils.randInt(5, 20);
-            geometryControls.height = THREE.MathUtils.randInt(1, 40);
+            geometryControls.width = THREE.MathUtils.randInt(2, 6);
+            geometryControls.height = THREE.MathUtils.randInt(1, 20);
             geometryControls.depth = THREE.MathUtils.randInt(5, 80);
         } else {
             geometryControls.radius = Math.random() * 10;
             geometryControls.height = THREE.MathUtils.randInt(1, 40);
         }
-        geometryControls.frequency = Math.random() * 1.5;
-        geometryControls.amplitude = Math.random() * 2;
+        geometryControls.frequency = Math.random();
+        if (geometryControls.frequency < 0.8) {
+            geometryControls.frequency = 0.8;
+        }
+        geometryControls.amplitude = Math.random();
+        if (geometryControls.amplitude < 1) {
+            geometryControls.amplitude = 1;
+        }
         // set random color but make sure it isnt too dark to see on the black background
         // geometryControls.startColor = `#${Math.floor(Math.random() * 0xffffff).toString(16)}`;
         // geometryControls.endColor = `#${Math.floor(Math.random() * 0xffffff).toString(16)}`;
@@ -108,13 +114,14 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
     const createBoxMesh = (controls) => {
         // console.log(controls);
         let geometry;
-        let widthSeg = Math.floor(THREE.MathUtils.randInt(5, 20))
-        let heightSeg = Math.floor(THREE.MathUtils.randInt(10, 40))
-        let depthSeg = Math.floor(THREE.MathUtils.randInt(20, 80))
+        let widthSeg = Math.floor(THREE.MathUtils.randInt(2, 50))
+        let heightSeg = Math.floor(THREE.MathUtils.randInt(1, 20))
+        let depthSeg = Math.floor(THREE.MathUtils.randInt(5, 80))
+        let radialSeg = Math.floor(THREE.MathUtils.randInt(1, 3))
         if (controls.meshType === 'Cube') {
-            geometry = new THREE.BoxGeometry(controls.width, controls.height, controls.depth, widthSeg, heightSeg, depthSeg);
+            geometry = new THREE.BoxGeometry(controls.width, controls.width, controls.width, widthSeg, widthSeg, depthSeg);
         } else {
-            geometry = new THREE.CylinderGeometry(controls.radius, controls.radius, controls.height, controls.depthSeg, heightSeg, false);
+            geometry = new THREE.CylinderGeometry(controls.radius, controls.radius, controls.height, 34 * radialSeg, 34 * heightSeg, false);
         }
         const material = new THREE.ShaderMaterial({
             vertexShader,
@@ -125,9 +132,9 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
                 time: { value: 0 },
                 frequency: { value: controls.frequency },
                 amplitude: { value: controls.amplitude },
-                offsetSize: { value: 8 },
-                size: { value: 15 },
-                offsetGain: { value: 3.5 },
+                offsetSize: { value: Math.floor(THREE.MathUtils.randInt(30, 60)) },
+                size: { value: 9 },
+                offsetGain: { value: 0 },
                 maxDistance: { value: 1.8 },
                 startColor: { value: new THREE.Color(controls.startColor) },
                 endColor: { value: new THREE.Color(controls.endColor) }
@@ -136,6 +143,7 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
         materialRef.current = material;
 
         const pointsMesh = new THREE.Points(geometry, materialRef.current);
+        pointsMesh.rotateX(Math.PI / 2) // Rotate the mesh for better visual orientation
 
         // Animate the rotation of the of the container
         gsap.to(pointsMesh.rotation, {
@@ -262,11 +270,13 @@ export default function DynamicGeometry({ vertexShader, fragmentShader }) {
             }
 
             // Ajustements des uniformes du matériel basés sur les fréquences
+            materialRef.current.uniforms.frequency.value = geometryControls.frequency + THREE.MathUtils.mapLinear(low, 0, 0.6, -0.1, 0.2);
             materialRef.current.uniforms.amplitude.value = geometryControls.amplitude + THREE.MathUtils.mapLinear(high, 0, 0.6, -0.1, 0.2);
-            materialRef.current.uniforms.offsetGain.value = mid * 3.6;
+            materialRef.current.uniforms.offsetGain.value = mid * 0.6
+
 
             // Ajustement du temps basé sur les fréquences low
-            const t = THREE.MathUtils.mapLinear(low, 1.2, 2, 0.4, 1);
+            const t = THREE.MathUtils.mapLinear(low, 0.6, 1, 0.2, 0.5);
             timeRef.current += THREE.MathUtils.clamp(t, 0.2, 0.5);
             materialRef.current.uniforms.time.value = timeRef.current;
         } else {
