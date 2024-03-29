@@ -5,7 +5,7 @@ export async function getSpotifyToken() {
     // Add the Content - Type header set to the application / x - www - form - urlencoded value.
     // Add a HTTP body containing the Client ID and Client Secret, along with the grant_type parameter set to client_credentials.
     // The Client ID and Client Secret are Base64 encoded.
-
+    console.log(process.env);
     const client_id = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
     const client_secret = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_SECRET;
     const basic = Buffer.from(`${client_id}:${client_secret}`).toString('base64');
