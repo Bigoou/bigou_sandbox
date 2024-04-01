@@ -5,8 +5,8 @@
 @layer base {
 
   @font-face {
-    font-family: 'Metro_time';
-    src: url('/fonts/Metro_time.woff') format('woff');
+    font-family: 'Metro_Time';
+    src: url('/fonts/metro_time.woff') format('woff');
   }
 
   * {
