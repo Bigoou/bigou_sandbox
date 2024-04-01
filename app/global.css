@@ -3,6 +3,12 @@
 @tailwind utilities;
 
 @layer base {
+
+  @font-face {
+    font-family: 'Metro_time';
+    src: url('/fonts/Metro_time.woff') format('woff');
+  }
+
   * {
     box-sizing: border-box;
   }

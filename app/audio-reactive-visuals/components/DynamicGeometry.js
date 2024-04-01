@@ -188,6 +188,7 @@ export default function DynamicGeometry({ audioUrl, vertexShader, fragmentShader
         audioManager.current = new AudioManager();
         bpmManager.current = new BPMManager();
         const setupAudioAndBPM = async () => {
+            console.log(audioUrl);
             audioManager.current.setSong(audioUrl);
             await audioManager.current.loadAudioBuffer();
             await bpmManager.current.detectBPM(audioManager.current.audio.buffer);
@@ -304,8 +305,8 @@ export default function DynamicGeometry({ audioUrl, vertexShader, fragmentShader
             materialRef.current.uniforms.time.value = timeRef.current;
         } else {
             // Réinitialisation des valeurs lorsque l'audio n'est pas en cours de lecture
-            materialRef.current.uniforms.frequency.value = 0.8;
-            materialRef.current.uniforms.amplitude.value = 1;
+            // materialRef.current.uniforms.frequency.value = 0.8;
+            // materialRef.current.uniforms.amplitude.value = 1;
             timeRef.current += 0.2;
             materialRef.current.uniforms.time.value = timeRef.current;
         }
