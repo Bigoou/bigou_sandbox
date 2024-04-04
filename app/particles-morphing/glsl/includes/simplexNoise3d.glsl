@@ -1,15 +1,3 @@
-uniform vec2 uResolution;
-uniform float uSize;
-uniform float uProgress;
-uniform vec3 uColorA;
-uniform vec3 uColorB;
-
-attribute vec3 aPositionTarget;
-attribute float aSize;
-
-
-varying vec3 vColor;
-
 //	Simplex 3D Noise 
 //	by Ian McEwan, Ashima Arts
 //
@@ -80,32 +68,4 @@ float simplexNoise3d(vec3 v)
     vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
     m = m * m;
     return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
-}
-
-void main()
-{
-    // Mixed position
-    float noiseOrigin = simplexNoise3d(position);
-    float noiseTarget = simplexNoise3d(aPositionTarget);
-    float noise = mix(noiseOrigin, noiseTarget, uProgress);
-    noise = smoothstep(-1.0, 1.0, noise);
-
-    float duration = 0.4;
-    float delay = (1.0 - duration) * noise;
-    float end = delay + duration;
-    float progress = smoothstep(delay, end, uProgress);
-    vec3 mixedPosition = mix(position, aPositionTarget, progress);
-
-    // Final position
-    vec4 modelPosition = modelMatrix * vec4(mixedPosition, 1.0);
-    vec4 viewPosition = viewMatrix * modelPosition;
-    vec4 projectedPosition = projectionMatrix * viewPosition;
-    gl_Position = projectedPosition;
-
-    // Point size
-    gl_PointSize = aSize * uSize * uResolution.y;
-    gl_PointSize *= (1.0 / - viewPosition.z);
-
-    // Varyings
-    vColor = mix(uColorA, uColorB, noise);
 }
