@@ -3,5 +3,10 @@
         "id": 1,
         "name": "Visuel Audio-Réactif",
         "path": "audio-reactive-visuals"
+    },
+    {
+        "id": 2,
+        "name": "Particles Morphing",
+        "path": "particles-morphing"
     }
 ]
