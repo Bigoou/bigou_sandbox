@@ -95,7 +95,7 @@ export default function Page() {
             /**
              * Load Model (SI ÇA NE MARCHE PAS AVEC UN AUTRE MODÈLE, CF LE TUTO DE BRUNO VERS 1:25:00)
              */
-            const gltf = await gltfLoader.loadAsync('./new_basketball.glb')
+            const gltf = await gltfLoader.loadAsync('./eiffel.glb')
             console.log(gltf);
 
 
@@ -106,12 +106,14 @@ export default function Page() {
             const baseGeometry = {}
             baseGeometry.instance = gltf.scene.children[0].geometry
             // change size
-            baseGeometry.instance.scale(15.1, 15.1, 15.1)
+            baseGeometry.instance.scale(0.05, 0.05, 0.05)
+            // reposition
+            baseGeometry.instance.translate(0, -8, 0)
             baseGeometry.count = baseGeometry.instance.attributes.position.count
 
             // Get texture
             const textureLoader = new THREE.TextureLoader();
-            const texture = textureLoader.load('./ball_ball_BaseColor.png')
+            const texture = textureLoader.load('./eiffel_texture.png')
 
             /**
              * GPU Compute
@@ -123,6 +125,8 @@ export default function Page() {
 
             // Base particles
             const baseParticlesTexture = gpgpu.computation.createTexture()
+
+
             for (let i = 0; i < baseGeometry.count; i++) {
                 const i3 = i * 3
                 const i4 = i * 4
@@ -131,12 +135,17 @@ export default function Page() {
                 baseParticlesTexture.image.data[i4 + 0] = baseGeometry.instance.attributes.position.array[i3 + 0]
                 baseParticlesTexture.image.data[i4 + 1] = baseGeometry.instance.attributes.position.array[i3 + 1]
                 baseParticlesTexture.image.data[i4 + 2] = baseGeometry.instance.attributes.position.array[i3 + 2]
-                baseParticlesTexture.image.data[i4 + 3] = 0
+                baseParticlesTexture.image.data[i4 + 3] = Math.random()
             }
 
             // Particles variable
             gpgpu.particlesVariable = gpgpu.computation.addVariable('uParticles', gpgpuParticlesShader, baseParticlesTexture)
             gpgpu.computation.setVariableDependencies(gpgpu.particlesVariable, [gpgpu.particlesVariable])
+
+            // Uniforms
+            gpgpu.particlesVariable.material.uniforms.uTime = new THREE.Uniform(0)
+            gpgpu.particlesVariable.material.uniforms.uDeltaTime = new THREE.Uniform(0)
+            gpgpu.particlesVariable.material.uniforms.uBase = new THREE.Uniform(baseParticlesTexture)
 
             // Init
             gpgpu.computation.init()
@@ -158,6 +167,7 @@ export default function Page() {
 
             // Geometry
             const particlesUvArray = new Float32Array(baseGeometry.count * 2)
+            const sizesArray = new Float32Array(baseGeometry.count)
 
             for (let y = 0; y < gpgpu.size; y++) {
                 for (let x = 0; x < gpgpu.size; x++) {
@@ -169,12 +179,15 @@ export default function Page() {
 
                     particlesUvArray[i2 + 0] = uvX
                     particlesUvArray[i2 + 1] = uvY
+
+                    sizesArray[i] = Math.random()
                 }
             }
 
             particles.geometry = new THREE.BufferGeometry()
             particles.geometry.setDrawRange(0, baseGeometry.count)
             particles.geometry.setAttribute('aParticlesUv', new THREE.BufferAttribute(particlesUvArray, 2))
+            particles.geometry.setAttribute('aSize', new THREE.BufferAttribute(sizesArray, 1))
             // particles.geometry.setAttribute('aColor', baseGeometry.instance.attributes.color)
 
             // Material
@@ -183,7 +196,7 @@ export default function Page() {
                 fragmentShader: fragmentShader,
                 uniforms:
                 {
-                    uSize: new THREE.Uniform(0.06),
+                    uSize: new THREE.Uniform(0.2),
                     uResolution: new THREE.Uniform(new THREE.Vector2(sizes.width * sizes.pixelRatio, sizes.height * sizes.pixelRatio)),
                     uParticlesTexture: new THREE.Uniform,
                     uColorTexture: { type: "t", value: texture }
@@ -215,6 +228,8 @@ export default function Page() {
                 controls.update()
 
                 // GPGPU update
+                gpgpu.particlesVariable.material.uniforms.uTime.value = elapsedTime
+                gpgpu.particlesVariable.material.uniforms.uDeltaTime.value = deltaTime
                 gpgpu.computation.compute()
                 particles.material.uniforms.uParticlesTexture.value = gpgpu.computation.getCurrentRenderTarget(gpgpu.particlesVariable).texture
 
