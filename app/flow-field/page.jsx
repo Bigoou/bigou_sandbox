@@ -95,16 +95,23 @@ export default function Page() {
             /**
              * Load Model (SI ÇA NE MARCHE PAS AVEC UN AUTRE MODÈLE, CF LE TUTO DE BRUNO VERS 1:25:00)
              */
-            const gltf = await gltfLoader.loadAsync('./boat.glb')
+            const gltf = await gltfLoader.loadAsync('./new_basketball.glb')
             console.log(gltf);
+
 
             /**
              * Base geometry
              */
 
             const baseGeometry = {}
-            baseGeometry.instance = new THREE.SphereGeometry(3)
+            baseGeometry.instance = gltf.scene.children[0].geometry
+            // change size
+            baseGeometry.instance.scale(15.1, 15.1, 15.1)
             baseGeometry.count = baseGeometry.instance.attributes.position.count
+
+            // Get texture
+            const textureLoader = new THREE.TextureLoader();
+            const texture = textureLoader.load('./ball_ball_BaseColor.png')
 
             /**
              * GPU Compute
@@ -168,6 +175,7 @@ export default function Page() {
             particles.geometry = new THREE.BufferGeometry()
             particles.geometry.setDrawRange(0, baseGeometry.count)
             particles.geometry.setAttribute('aParticlesUv', new THREE.BufferAttribute(particlesUvArray, 2))
+            // particles.geometry.setAttribute('aColor', baseGeometry.instance.attributes.color)
 
             // Material
             particles.material = new THREE.ShaderMaterial({
@@ -175,9 +183,10 @@ export default function Page() {
                 fragmentShader: fragmentShader,
                 uniforms:
                 {
-                    uSize: new THREE.Uniform(0.4),
+                    uSize: new THREE.Uniform(0.06),
                     uResolution: new THREE.Uniform(new THREE.Vector2(sizes.width * sizes.pixelRatio, sizes.height * sizes.pixelRatio)),
-                    uParticlesTexture: new THREE.Uniform
+                    uParticlesTexture: new THREE.Uniform,
+                    uColorTexture: { type: "t", value: texture }
                 }
             })
 
