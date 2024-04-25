@@ -9,11 +9,10 @@ import AudioManager from '../managers/AudioManager';
 import gsap from 'gsap'
 
 
-export default function DynamicGeometry({ audioUrl, vertexShader, fragmentShader }) {
+export default function DynamicGeometry({ audioManager, audioUrl, vertexShader, fragmentShader }) {
     const meshRef = useRef();
     const { scene } = useThree();
     const timeRef = useRef(0);
-    const audioManager = useRef(null);
     const bpmManager = useRef(null);
     const materialRef = useRef();
     const [geometryControls, setGeometryControls] = useState({
@@ -185,7 +184,6 @@ export default function DynamicGeometry({ audioUrl, vertexShader, fragmentShader
     }
 
     useEffect(() => {
-        audioManager.current = new AudioManager();
         bpmManager.current = new BPMManager();
         const setupAudioAndBPM = async () => {
             console.log(audioUrl);

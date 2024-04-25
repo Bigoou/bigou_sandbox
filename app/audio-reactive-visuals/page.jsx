@@ -9,8 +9,9 @@ import vertexShader from './glsl/shader.vert';
 import fragmentShader from './glsl/shader.frag';
 import DynamicGeometry from './components/DynamicGeometry';
 import * as THREE from 'three';
-import { getSpotifyToken, searchSpotify } from 'pages/api/spotify';
+import * as spotify from 'pages/api/spotify';
 import gsap from 'gsap';
+import Cookies from 'js-cookie';
 
 // SVG component to display on hover
 const HoverSVG = () => (
@@ -34,10 +35,29 @@ export default function Page() {
     const [startExperience, setStartExperience] = useState(false);
     const [token, setToken] = useState(null);
     const [songs, setSongs] = useState([]);
+    const [suggestedSongs, setSuggestedSongs] = useState([]);
     const [query, setQuery] = useState('');
+    const [showPlayer, setShowPlayer] = useState(false);
     const [audioUrl, setAudioUrl] = useState('');
     const [songError, setSongError] = useState(false);
     const searchDelayRef = useRef(null); // Pour conserver le timeout
+    const audioManager = useRef(null);
+    const [userName, setUserName] = useState('');
+    const [isLogged, setIsLogged] = useState(false);
+
+    useEffect(() => {
+        const name = Cookies.get('spotify_user_name');
+        if (name) {
+            setUserName(name);
+            console.log('User name:', name);
+        }
+    }, []);
+
+    const handleLogout = () => {
+        Cookies.remove('spotify_access_token');
+        Cookies.remove('spotify_user_name');
+        window.location.reload();  // Recharger la page pour mettre à jour l'état d'authentification
+    };
 
     const handleClick = (url) => {
         if (!url) {
@@ -49,6 +69,7 @@ export default function Page() {
                 opacity: 0,
                 duration: 0.5,
                 onComplete: () => {
+                    setShowPlayer(false);
                     setSongError(false);
                     setAudioUrl(url);
                     setStartExperience(true);
@@ -65,15 +86,32 @@ export default function Page() {
     }
 
     useEffect(() => {
-        if (!token) {
-            async function fetchToken() {
+        audioManager.current = new AudioManager();
+        const userToken = Cookies.get('spotify_access_token');
+        // check if token is already in cookies
+        console.log('User token:', userToken);
+        async function fetchToken() {
+            if (userToken) {
+                setIsLogged(true);
+                setToken(userToken);
+                // fetch favorite tracks
+                console.log('Token:', token);
+                const response = await spotify.getFavoriteTracks(userToken);
+                console.log('Favorite tracks:', response);
+                setSuggestedSongs(response);
+                return;
+            } else {
+                setIsLogged(false);
                 const response = await fetch('/api/getSpotifyToken');
                 const data = await response.json();
                 setToken(data.token);
+                spotify.getTrendingSongs(data.token).then((data) => {
+                    setSuggestedSongs(data.items);
+                });
             }
-
-            fetchToken();
         }
+
+        fetchToken();
     }, []);
 
     useEffect(() => {
@@ -85,7 +123,7 @@ export default function Page() {
         // Ne lance pas la recherche immédiatement; attend 1 seconde.
         searchDelayRef.current = setTimeout(() => {
             if (query) {
-                searchSpotify(query, token).then((data) => {
+                spotify.searchSpotify(query, token).then((data) => {
                     const songs = data.tracks.items;
                     songs.forEach(song => song.hovered = false);
                     setSongs(songs);
@@ -112,8 +150,27 @@ export default function Page() {
         });
     }, [songs]);
 
+    useEffect(() => {
+        const handleKeyPress = async (event) => {
+            if (event.code === 'Space') {
+                if (startExperience && audioManager.current.audio) {
+                    audioManager.current.isPlaying ? audioManager.current.pause() : audioManager.current.play();
+                    showPlayer ? setShowPlayer(false) : setShowPlayer(true);
+                }
+                
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyPress);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyPress);
+        };
+    }, [token, startExperience]); // Ajoutez token et startExperience aux dépendances pour les réévaluations pertinentes
+
+
     const onSearch = (query) => {
-        searchSpotify(query, token).then((data) => {
+        spotify.searchSpotify(query, token).then((data) => {
             setSongs(data.tracks.items);
         });
     };
@@ -121,7 +178,79 @@ export default function Page() {
     return (
         <div className="h-screen flex flex-col justify-center items-center bg-black font-metrotime">
             {/* Condition de rendu pour les résultats de recherche */}
-            {!startExperience && (
+            {showPlayer && (
+                <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-90 flex justify-center items-center">
+                    <div className="w-full h-full p-10 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Column for trending songs */}
+                        <div className="col-span-1 md:col-span-2 flex flex-col">
+                            <h1 className="text-white text-2xl mb-4">
+                                {
+                                    isLogged ? 'Your fav songs' : 'Trending songs'
+                                }
+                            </h1>
+                            {suggestedSongs.map((song) => (
+                                <div
+                                    onClick={() => handleClick(song.track.preview_url)}
+                                    onMouseOver={() => handleOver(song.track)}
+                                    onMouseLeave={() => song.track.hovered = false}
+                                    key={song.track.id}
+                                    className={`flex m-2 bg-transparent rounded overflow-hidden shadow-md transition duration-300 hover:border-white ${!song.track.preview_url && 'opacity-50 pointer-events-none'}`}
+                                    style={{ cursor: song.track.preview_url ? 'pointer' : 'default' }}
+                                >
+                                    <div className="relative w-24 h-24">
+                                        <img
+                                            src={song.track.album.images[0].url}
+                                            alt={`Cover for ${song.track.album.name}`}
+                                            className="object-cover w-full h-full"
+                                        />
+                                        <span>
+                                            {song.track.hovered && <HoverSVG />}
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col justify-center ml-4">
+                                        <p className="text-white truncate text-lg">{song.track.name.length > 20 ? `${song.track.name.substring(0, 20)}...` : song.track.name}</p>
+                                        <p className='text-gray-500 text-sm'>{song.track.artists.map(artist => artist.name).join(', ')}</p>
+                                        <p className="text-gray-500 text-sm">{song.track.album.name}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Search bar and search button */}
+                        <div className="col-span-1 flex flex-col justify-start">
+                            <input
+                                className="w-full mb-2 bg-transparent border-b border-white px-4 py-2 text-white placeholder-white placeholder-opacity-50 focus:outline-none"
+                                placeholder="SEARCH FOR A SONG..."
+                                onChange={(e) => setQuery(e.target.value)}
+                                value={query}
+                            />
+                            <button
+                                className="w-full bg-transparent border border-white px-4 py-2 text-white hover:bg-white hover:text-black transition duration-300"
+                                onClick={() => onSearch(query)}
+                            >
+                                Search
+                            </button>
+                        </div>
+
+                        {/* Account / login link */}
+                        <div>
+                            {userName ? (
+                                <div className="text-white hover:text-gray-500 transition duration-300">
+                                    <span>{userName + ' '}</span>
+                                    <button onClick={handleLogout}> (Déconnexion)</button>
+                                </div>
+                            ) : (
+                                <a href="/api/auth/spotify" className="text-white hover:text-gray-500 transition duration-300">
+                                    Login
+                                </a>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+
+            )}
+            {(!startExperience && !showPlayer) && (
                 <div className='search-layout'>
                     <div className="w-full flex flex-col justify-center items-center fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
                         <input
@@ -165,12 +294,12 @@ export default function Page() {
             )}
 
             {/* Condition de rendu pour la scène */}
-            {startExperience && (
+            {(startExperience && !showPlayer) && (
                 <Canvas camera={{ position: [0, 0, 20], fov: 30 }}>
                     <ambientLight intensity={0.5} />
                     <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} />
                     <pointLight position={[-10, -10, -10]} />
-                    <DynamicGeometry audioUrl={audioUrl} vertexShader={vertexShader} fragmentShader={fragmentShader} />
+                    <DynamicGeometry audioManager={audioManager} audioUrl={audioUrl} vertexShader={vertexShader} fragmentShader={fragmentShader} />
                     <OrbitControls />
                 </Canvas>
             )}
