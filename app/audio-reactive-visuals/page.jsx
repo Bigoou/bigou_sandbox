@@ -308,7 +308,6 @@ export default function Page() {
                             onChange={(e) => setQuery(e.target.value)}
                             value={query}
                         />
-                        <p className="text-white text-center mb-4">Press <span className="text-red-500">Escape</span> to play/pause the song & gain access to ur dashboard</p>
                     </div>
                     <div className="flex flex-wrap justify-center items-center w-full mt-72">
                         {songs.map((song) => (
@@ -347,9 +346,7 @@ export default function Page() {
             {(startExperience && !showPlayer) && (
                 <>
                     {/* Tell to press escape to play/pause the song */}
-                    <div className="fixed top-0 left-0 ">
-                        <small className="text-white">Press <span className="text-red-500">Escape</span> to play/pause the song</small>
-                    </div>
+
                     <Canvas camera={{ position: [0, 0, 20], fov: 30 }}>
                         <ambientLight intensity={0.5} />
                         <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} />
@@ -359,6 +356,13 @@ export default function Page() {
                     </Canvas>
                 </>
             )}
+            {
+                !showPlayer && (
+                    <div className="fixed top-0 left-0 ">
+                        <small className="text-white">Press <span className="text-red-500">Escape</span> to play/pause the song</small>
+                    </div>
+                )
+            }
         </div>
     );
 }
