@@ -33,6 +33,7 @@ const HoverSVG = () => (
 
 export default function Page() {
     const [startExperience, setStartExperience] = useState(false);
+    const [devToken, setDevToken] = useState(null);
     const [token, setToken] = useState(null);
     const [songs, setSongs] = useState([]);
     const [suggestedSongs, setSuggestedSongs] = useState([]);
@@ -90,7 +91,13 @@ export default function Page() {
         const userToken = Cookies.get('spotify_access_token');
         // check if token is already in cookies
         console.log('User token:', userToken);
+
         async function fetchToken() {
+            setIsLogged(false);
+            const response = await fetch('/api/getSpotifyToken');
+            const data = await response.json();
+            setDevToken(data.token);
+
             if (userToken) {
                 setIsLogged(true);
                 setToken(userToken);
@@ -101,10 +108,6 @@ export default function Page() {
                 setSuggestedSongs(response);
                 return;
             } else {
-                setIsLogged(false);
-                const response = await fetch('/api/getSpotifyToken');
-                const data = await response.json();
-                setToken(data.token);
                 spotify.getTrendingSongs(data.token).then((data) => {
                     setSuggestedSongs(data.items);
                 });
@@ -123,7 +126,7 @@ export default function Page() {
         // Ne lance pas la recherche immédiatement; attend 1 seconde.
         searchDelayRef.current = setTimeout(() => {
             if (query) {
-                spotify.searchSpotify(query, token).then((data) => {
+                spotify.searchSpotify(query, devToken).then((data) => {
                     const songs = data.tracks.items;
                     songs.forEach(song => song.hovered = false);
                     setSongs(songs);
@@ -157,7 +160,7 @@ export default function Page() {
                     audioManager.current.isPlaying ? audioManager.current.pause() : audioManager.current.play();
                     showPlayer ? setShowPlayer(false) : setShowPlayer(true);
                 }
-                
+
             }
         };
 
