@@ -21,13 +21,13 @@ const HoverSVG = () => (
         width="64"
         height="64"
         fill="none"
-        className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+        className="hover-svg absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 transition duration-300 hover:opacity-100"
     >
         {/* Your SVG content */}
         <path d="M3 12L3 18.9671C3 21.2763 5.53435 22.736 7.59662 21.6145L10.7996 19.8727M3 8L3 5.0329C3 2.72368 5.53435 1.26402 7.59661 2.38548L20.4086 9.35258C22.5305 10.5065 22.5305 13.4935 20.4086 14.6474L14.0026 18.131"
             stroke="#fff"
-            stroke-width="1.5"
-            stroke-linecap="round" />
+            strokeWidth="1.5"
+            strokeLinecap="round" />
     </svg>
 );
 
@@ -45,6 +45,7 @@ export default function Page() {
     const audioManager = useRef(null);
     const [userName, setUserName] = useState('');
     const [isLogged, setIsLogged] = useState(false);
+    const [searchLoading, setSearchLoading] = useState(false);
 
     useEffect(() => {
         const name = Cookies.get('spotify_user_name');
@@ -80,9 +81,7 @@ export default function Page() {
     };
 
     const handleOver = (song) => {
-        // display play svg on hover and add a hovered class
-        // song.preview_url && gsap.to('.selectable-card', { opacity: 0.5, duration: 0.3 });
-        song.hovered = true;
+        // display hoversvg with gsap
 
     }
 
@@ -155,12 +154,21 @@ export default function Page() {
 
     useEffect(() => {
         const handleKeyPress = async (event) => {
-            if (event.code === 'Space') {
+            if (event.code === 'Escape') {
+
                 if (startExperience && audioManager.current.audio) {
                     audioManager.current.isPlaying ? audioManager.current.pause() : audioManager.current.play();
                     showPlayer ? setShowPlayer(false) : setShowPlayer(true);
+                } else {
+
+                    showPlayer ? setShowPlayer(false) : setShowPlayer(true);
                 }
 
+            }
+            if (event.code === 'Enter') {
+                if (showPlayer) {
+                    onSearch(query);
+                }
             }
         };
 
@@ -173,8 +181,12 @@ export default function Page() {
 
 
     const onSearch = (query) => {
-        spotify.searchSpotify(query, token).then((data) => {
-            setSongs(data.tracks.items);
+        setSearchLoading(true);
+        spotify.searchSpotify(query, devToken).then((data) => {
+            const songs = data.tracks.items;
+            songs.forEach(song => song.hovered = false);
+            setSongs(songs);
+            setSearchLoading(false);
         });
     };
 
@@ -207,7 +219,7 @@ export default function Page() {
                                             className="object-cover w-full h-full"
                                         />
                                         <span>
-                                            {song.track.hovered && <HoverSVG />}
+                                            <HoverSVG />
                                         </span>
                                     </div>
                                     <div className="flex flex-col justify-center ml-4">
@@ -233,6 +245,40 @@ export default function Page() {
                             >
                                 Search
                             </button>
+                            {
+                                /* Display songs from search */
+                                searchLoading ? (
+                                    <div className="text-white text-center mt-4">Loading...</div>
+                                ) :
+                                    (
+                                        songs.map((song) => (
+                                            <div
+                                                onClick={() => handleClick(song.preview_url)}
+                                                onMouseOver={() => handleOver(song)}
+                                                onMouseLeave={() => song.hovered = false}
+                                                key={song.id}
+                                                className={`flex m-2 bg-transparent rounded overflow-hidden shadow-md transition duration-300 hover:border-white ${!song.preview_url && 'opacity-50 pointer-events-none'}`}
+                                                style={{ cursor: song.preview_url ? 'pointer' : 'default' }}
+                                            >
+                                                <div className="relative w-24 h-24">
+                                                    <img
+                                                        src={song.album.images[0].url}
+                                                        alt={`Cover for ${song.album.name}`}
+                                                        className="object-cover w-full h-full"
+                                                    />
+                                                    <span>
+                                                        <HoverSVG />
+                                                    </span>
+                                                </div>
+                                                <div className="flex flex-col justify-center ml-4">
+                                                    <p className="text-white truncate text-lg">{song.name.length > 20 ? `${song.name.substring(0, 20)}...` : song.name}</p>
+                                                    <p className='text-gray-500 text-sm'>{song.artists.map(artist => artist.name).join(', ')}</p>
+                                                    <p className="text-gray-500 text-sm">{song.album.name}</p>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )
+                            }
                         </div>
 
                         {/* Account / login link */}
@@ -262,6 +308,7 @@ export default function Page() {
                             onChange={(e) => setQuery(e.target.value)}
                             value={query}
                         />
+                        <p className="text-white text-center mb-4">Press <span className="text-red-500">Escape</span> to play/pause the song & gain access to ur dashboard</p>
                     </div>
                     <div className="flex flex-wrap justify-center items-center w-full mt-72">
                         {songs.map((song) => (
@@ -281,7 +328,7 @@ export default function Page() {
                                             className="w-full h-40 object-cover"
                                         />
                                         <span>
-                                            {song.hovered && <HoverSVG />}
+                                            <HoverSVG />
                                         </span>
                                     </div>
                                     <div className="px-4 py-2 text-center">
@@ -298,13 +345,19 @@ export default function Page() {
 
             {/* Condition de rendu pour la scène */}
             {(startExperience && !showPlayer) && (
-                <Canvas camera={{ position: [0, 0, 20], fov: 30 }}>
-                    <ambientLight intensity={0.5} />
-                    <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} />
-                    <pointLight position={[-10, -10, -10]} />
-                    <DynamicGeometry audioManager={audioManager} audioUrl={audioUrl} vertexShader={vertexShader} fragmentShader={fragmentShader} />
-                    <OrbitControls />
-                </Canvas>
+                <>
+                    {/* Tell to press escape to play/pause the song */}
+                    <div className="fixed top-0 left-0 ">
+                        <small className="text-white">Press <span className="text-red-500">Escape</span> to play/pause the song</small>
+                    </div>
+                    <Canvas camera={{ position: [0, 0, 20], fov: 30 }}>
+                        <ambientLight intensity={0.5} />
+                        <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} />
+                        <pointLight position={[-10, -10, -10]} />
+                        <DynamicGeometry audioManager={audioManager} audioUrl={audioUrl} vertexShader={vertexShader} fragmentShader={fragmentShader} />
+                        <OrbitControls />
+                    </Canvas>
+                </>
             )}
         </div>
     );
