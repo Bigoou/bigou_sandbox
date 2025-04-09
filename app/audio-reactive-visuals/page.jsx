@@ -46,6 +46,36 @@ export default function Page() {
     const [userName, setUserName] = useState('');
     const [isLogged, setIsLogged] = useState(false);
     const [searchLoading, setSearchLoading] = useState(false);
+    const [noPreviewsAvailable, setNoPreviewsAvailable] = useState(false);
+    const [canUseFullTrack, setCanUseFullTrack] = useState(false);
+    const [alternativeSources, setAlternativeSources] = useState(false);
+    const [demoMode, setDemoMode] = useState(true);
+    const [demoTracks, setDemoTracks] = useState([
+        {
+            id: 'demo1',
+            name: 'Demo Track 1 - Electronic',
+            artists: [{ name: 'Demo Artist' }],
+            album: { name: 'Demo Album', images: [{ url: '/demo-covers/electronic.jpg' }] },
+            preview_url: '/demo-tracks/electronic.mp3',
+            has_preview: true
+        },
+        {
+            id: 'demo2',
+            name: 'Demo Track 2 - Rock',
+            artists: [{ name: 'Demo Artist' }],
+            album: { name: 'Demo Album', images: [{ url: '/demo-covers/rock.jpg' }] },
+            preview_url: '/demo-tracks/rock.mp3',
+            has_preview: true
+        },
+        {
+            id: 'demo3',
+            name: 'Demo Track 3 - Techno',
+            artists: [{ name: 'Demo Artist' }],
+            album: { name: 'Demo Album', images: [{ url: '/demo-covers/techno.jpg' }] },
+            preview_url: '/demo-tracks/techno.mp3',
+            has_preview: true
+        }
+    ]);
 
     useEffect(() => {
         const name = Cookies.get('spotify_user_name');
@@ -75,6 +105,15 @@ export default function Page() {
                     setSongError(false);
                     setAudioUrl(url);
                     setStartExperience(true);
+                    
+                        if (audioManager.current) {
+                            audioManager.current.setSong(url);
+                            audioManager.current.loadAudioBuffer().then(() => {
+                                audioManager.current.play();
+                            }).catch(err => {
+                                console.error("Erreur lors du chargement de l'audio:", err);
+                            });
+                        }
                 }
             });
         }
@@ -90,6 +129,8 @@ export default function Page() {
         const userToken = Cookies.get('spotify_access_token');
         // check if token is already in cookies
         console.log('User token:', userToken);
+        
+        setSongs(demoTracks);
 
         async function fetchToken() {
             setIsLogged(false);
@@ -101,15 +142,23 @@ export default function Page() {
                 setIsLogged(true);
                 setToken(userToken);
                 // fetch favorite tracks
-                console.log('Token:', token);
-                const response = await spotify.getFavoriteTracks(userToken);
-                console.log('Favorite tracks:', response);
-                setSuggestedSongs(response);
+                try {
+                    const response = await fetch(`/api/spotify/favorites?token=${userToken}`);
+                    const data = await response.json();
+                    console.log('Favorite tracks:', data);
+                    setSuggestedSongs(data.items);
+                } catch (error) {
+                    console.error('Error fetching favorites:', error);
+                }
                 return;
             } else {
-                spotify.getTrendingSongs(data.token).then((data) => {
-                    setSuggestedSongs(data.items);
-                });
+                try {
+                    const response = await fetch(`/api/spotify/trending?token=${data.token}`);
+                    const trendingData = await response.json();
+                    setSuggestedSongs(trendingData.items);
+                } catch (error) {
+                    console.error('Error fetching trending songs:', error);
+                }
             }
         }
 
@@ -117,31 +166,35 @@ export default function Page() {
     }, []);
 
     useEffect(() => {
-        // Annule le délai précédent à chaque modification de la requête
         if (searchDelayRef.current) {
             clearTimeout(searchDelayRef.current);
         }
 
-        // Ne lance pas la recherche immédiatement; attend 1 seconde.
         searchDelayRef.current = setTimeout(() => {
             if (query) {
-                spotify.searchSpotify(query, devToken).then((data) => {
-                    const songs = data.tracks.items;
-                    songs.forEach(song => song.hovered = false);
-                    setSongs(songs);
-                });
+                setNoPreviewsAvailable(false);
+                fetch(`/api/spotify/search?query=${encodeURIComponent(query)}&token=${devToken}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const songs = data.tracks.items;
+                        songs.forEach(song => song.hovered = false);
+                        const hasAnyPreview = songs.some(song => song.preview_url);
+                        setNoPreviewsAvailable(!hasAnyPreview);
+                        setSongs(songs);
+                    })
+                    .catch(error => {
+                        console.error('Error searching songs:', error);
+                    });
             }
-        }, 1000); // Attend 1 seconde avant d'exécuter la recherche
+        }, 1000);
 
-        // Nettoyage du useEffect
         return () => {
             if (searchDelayRef.current) {
                 clearTimeout(searchDelayRef.current);
             }
         };
-    }, [query]); // Ce useEffect s'exécute à chaque changement de 'query'
+    }, [query]);
 
-    // Animation des cartes successivement avec GSAP
     useEffect(() => {
         gsap.from('.selectable-card', {
             duration: 1,
@@ -155,15 +208,12 @@ export default function Page() {
     useEffect(() => {
         const handleKeyPress = async (event) => {
             if (event.code === 'Escape') {
-
-                if (startExperience && audioManager.current.audio) {
+                if (startExperience && audioManager.current && audioManager.current.audio) {
                     audioManager.current.isPlaying ? audioManager.current.pause() : audioManager.current.play();
                     showPlayer ? setShowPlayer(false) : setShowPlayer(true);
                 } else {
-
                     showPlayer ? setShowPlayer(false) : setShowPlayer(true);
                 }
-
             }
             if (event.code === 'Enter') {
                 if (showPlayer) {
@@ -177,21 +227,47 @@ export default function Page() {
         return () => {
             window.removeEventListener('keydown', handleKeyPress);
         };
-    }, [token, startExperience]); // Ajoutez token et startExperience aux dépendances pour les réévaluations pertinentes
+    }, [token, startExperience, query])
 
 
     const onSearch = (query) => {
         setSearchLoading(true);
-        spotify.searchSpotify(query, devToken).then((data) => {
-            const songs = data.tracks.items;
-            songs.forEach(song => song.hovered = false);
-            setSongs(songs);
-            setSearchLoading(false);
-        });
+        setNoPreviewsAvailable(false);
+        fetch(`/api/spotify/search?query=${encodeURIComponent(query)}&token=${devToken}`)
+            .then(response => response.json())
+            .then(data => {
+                const songs = data.tracks.items;
+                songs.forEach(song => song.hovered = false);
+                const hasAnyPreview = songs.some(song => song.preview_url);
+                setNoPreviewsAvailable(!hasAnyPreview);
+                setSongs(songs);
+                setSearchLoading(false);
+            })
+            .catch(error => {
+                console.error('Error searching songs:', error);
+                setSearchLoading(false);
+            });
     };
 
     return (
         <div className="h-screen flex flex-col justify-center items-center bg-black font-metrotime">
+            {!startExperience && !showPlayer && (
+                <div className="fixed top-4 right-4 z-10">
+                    <div className={`px-4 py-2 rounded text-white ${demoMode ? 'bg-green-700' : 'bg-gray-700'}`}>
+                        {demoMode ? 'Mode Démo' : 'Mode Spotify'}
+                    </div>
+                </div>
+            )}
+            
+            {/* Afficher un message de mode démo quand il est activé */}
+            {demoMode && !startExperience && (
+                <div className="fixed top-16 right-4 z-10 bg-green-900 bg-opacity-80 p-3 rounded shadow-lg max-w-xs">
+                    <p className="text-white text-sm mb-2">
+                        Mode démo actif : utilisez les morceaux préchargés pour tester l'expérience sans Spotify. (Spotify ne renvoie plus de prévisualisations audio)
+                    </p>
+                </div>
+            )}
+            
             {/* Condition de rendu pour les résultats de recherche */}
             {showPlayer && (
                 <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-90 flex justify-center items-center">
@@ -203,14 +279,14 @@ export default function Page() {
                                     isLogged ? 'Your fav songs' : 'Trending songs'
                                 }
                             </h1>
-                            {suggestedSongs.map((song) => (
+                            {suggestedSongs && suggestedSongs.length > 0 && suggestedSongs.map((song) => (
                                 <div
                                     onClick={() => handleClick(song.track.preview_url)}
                                     onMouseOver={() => handleOver(song.track)}
                                     onMouseLeave={() => song.track.hovered = false}
                                     key={song.track.id}
-                                    className={`flex m-2 bg-transparent rounded overflow-hidden shadow-md transition duration-300 hover:border-white ${!song.track.preview_url && 'opacity-50 pointer-events-none'}`}
-                                    style={{ cursor: song.track.preview_url ? 'pointer' : 'default' }}
+                                    className={`flex m-2 bg-transparent rounded overflow-hidden shadow-md transition duration-300 hover:border-white ${(!song.track.preview_url && !song.track.has_preview) && 'opacity-50 pointer-events-none'}`}
+                                    style={{ cursor: (song.track.preview_url || song.track.has_preview) ? 'pointer' : 'default' }}
                                 >
                                     <div className="relative w-24 h-24">
                                         <img
@@ -245,6 +321,41 @@ export default function Page() {
                             >
                                 Search
                             </button>
+                            
+                            {noPreviewsAvailable && (
+                                <div className="mt-4 p-3 bg-red-900 bg-opacity-50 text-white rounded">
+                                    <p className="text-sm mb-2">
+                                        Spotify a restreint l'accès aux prévisualisations audio pour ces morceaux. 
+                                        Voici quelques solutions :
+                                    </p>
+                                    <ul className="list-disc list-inside text-xs space-y-1">
+                                        <li>Essayez une autre recherche ou des artistes plus populaires</li>
+                                        <li>Essayez cette recherche sur une autre région (US, UK)</li>
+                                        <li>Connectez-vous avec votre compte Spotify Premium</li>
+                                    </ul>
+                                    <div className="mt-3 flex justify-between">
+                                        <button 
+                                            onClick={() => onSearch('The Beatles')}
+                                            className="text-xs bg-white bg-opacity-20 px-2 py-1 rounded hover:bg-opacity-30"
+                                        >
+                                            Essayer "The Beatles"
+                                        </button>
+                                        <button 
+                                            onClick={() => onSearch('Michael Jackson')}
+                                            className="text-xs bg-white bg-opacity-20 px-2 py-1 rounded hover:bg-opacity-30"
+                                        >
+                                            Essayer "Michael Jackson"
+                                        </button>
+                                        <button 
+                                            onClick={() => onSearch('Queen')}
+                                            className="text-xs bg-white bg-opacity-20 px-2 py-1 rounded hover:bg-opacity-30"
+                                        >
+                                            Essayer "Queen"
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            
                             {
                                 /* Display songs from search */
                                 searchLoading ? (
@@ -257,8 +368,8 @@ export default function Page() {
                                                 onMouseOver={() => handleOver(song)}
                                                 onMouseLeave={() => song.hovered = false}
                                                 key={song.id}
-                                                className={`flex m-2 bg-transparent rounded overflow-hidden shadow-md transition duration-300 hover:border-white ${!song.preview_url && 'opacity-50 pointer-events-none'}`}
-                                                style={{ cursor: song.preview_url ? 'pointer' : 'default' }}
+                                                className={`flex m-2 bg-transparent rounded overflow-hidden shadow-md transition duration-300 hover:border-white ${(!song.preview_url && !song.has_preview) && 'opacity-50 pointer-events-none'}`}
+                                                style={{ cursor: (song.preview_url || song.has_preview) ? 'pointer' : 'default' }}
                                             >
                                                 <div className="relative w-24 h-24">
                                                     <img
@@ -302,13 +413,34 @@ export default function Page() {
             {(!startExperience && !showPlayer) && (
                 <div className='search-layout'>
                     <div className="w-full flex flex-col justify-center items-center fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                        <input
-                            className="w-1/4 mb-24 bg-transparent border-b border-white px-4 py-2 text-white placeholder-white placeholder-opacity-50 focus:outline-none"
-                            placeholder="SEARCH FOR A SONG..."
-                            onChange={(e) => setQuery(e.target.value)}
-                            value={query}
-                        />
+                        {!demoMode ? (
+                            <>
+                                <input
+                                    className="w-1/4 mb-24 bg-transparent border-b border-white px-4 py-2 text-white placeholder-white placeholder-opacity-50 focus:outline-none"
+                                    placeholder="SEARCH FOR A SONG..."
+                                    onChange={(e) => setQuery(e.target.value)}
+                                    value={query}
+                                />
+                                <div className="mt-4">
+                                    <button
+                                        onClick={() => {
+                                            setDemoMode(true);
+                                            setSongs(demoTracks);
+                                        }}
+                                        className="px-6 py-3 bg-green-700 hover:bg-green-600 text-white rounded transition duration-300"
+                                    >
+                                        Revenir au mode démo
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <h2 className="text-white text-2xl mb-24">Sélectionnez un morceau démo ci-dessous</h2>
+                              
+                            </>
+                        )}
                     </div>
+                    
                     <div className="flex flex-wrap justify-center items-center w-full mt-72">
                         {songs.map((song) => (
                             <div
@@ -316,8 +448,8 @@ export default function Page() {
                                 onMouseOver={() => handleOver(song)}
                                 onMouseLeave={() => song.hovered = false}
                                 key={song.id}
-                                className={`m-4 w-64 selectable-card ${!song.preview_url && 'opacity-50 pointer-events-none '}`}
-                                style={{ cursor: song.preview_url ? 'pointer' : 'default' }}
+                                className={`m-4 w-64 selectable-card ${(!song.preview_url && !song.has_preview) && 'opacity-50 pointer-events-none '}`}
+                                style={{ cursor: (song.preview_url || song.has_preview) ? 'pointer' : 'default' }}
                             >
                                 <div className=" bg-transparent rounded overflow-hidden shadow-md border border-transparent transition duration-300 hover:border-white relative">
                                     <div className='relative'>
